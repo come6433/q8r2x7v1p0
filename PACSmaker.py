@@ -19,10 +19,7 @@ import sys
 import re
 
 
-
-# VERSION = "1.3"
-
-CURRENT_VERSION = "1.3"
+CURRENT_VERSION = "1.21"
 
 
 
