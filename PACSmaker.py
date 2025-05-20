@@ -20,9 +20,9 @@ import re
 
 
 
-# VERSION = "1.21"
+# VERSION = "1.3"
 
-CURRENT_VERSION = "1.21"
+CURRENT_VERSION = "1.3"
 
 
 
