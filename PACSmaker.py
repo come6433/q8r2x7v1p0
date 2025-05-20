@@ -26,11 +26,8 @@ UPDATE_DATE = "2025-05-20"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
 
 
-
 def get_version_from_text(text):
-
-    m = re.search(r'VERSION\s*=\s*["\']([\d\.]+)["\']', text)
-
+    m = re.search(r'CURRENT_VERSION\s*=\s*["\']([\d\.]+)["\']', text)
     return m.group(1) if m else None
 
 
