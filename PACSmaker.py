@@ -20,7 +20,7 @@ import re
 
 
 CURRENT_VERSION = "1.21"
-
+UPDATE_DATE = "2025-05-20"
 
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
@@ -95,9 +95,9 @@ print("      PACS 저상게시대 지도 생성기")
 
 print("=" * 40)
 
-print("버전:        1.2")
+print("버전:        ", CURRENT_VERSION)
 
-print("업데이트:    2025-05-20")
+print("업데이트:    ", UPDATE_DATE)
 
 print("- 지도 타일 추가")
 
