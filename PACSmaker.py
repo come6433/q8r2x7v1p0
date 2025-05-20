@@ -19,7 +19,7 @@ import sys
 import re
 
 
-CURRENT_VERSION = "1.21"
+CURRENT_VERSION = "1.22"
 UPDATE_DATE = "2025-05-20"
 
 
