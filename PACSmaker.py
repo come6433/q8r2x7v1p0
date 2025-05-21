@@ -1161,7 +1161,7 @@ print("\nHTML 파일 업로드 시작")
 upload_or_update(LOCAL_HTML, REMOTE_HTML)
 
 print("\n서버 업로드 완료!")
-print(f"공유주소: {repo.html_url}/{REMOTE_HTML}")
+print(f"공유주소: https://come6433.github.io/q8r2x7v1p0/PACS.html")
 print("=" * 40)
 # 종료 대기 (콘솔창이 바로 닫히지 않도록)
 while True:
