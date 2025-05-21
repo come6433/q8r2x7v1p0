@@ -3,14 +3,14 @@ import pandas as pd
 import folium
 import base64
 import os
-from folium.plugins import Draw, LocateControl
+from folium.plugins import Draw, LocateControl, MeasureControl
 import datetime
 import requests
 import sys
 import re
 from github import Github
 
-CURRENT_VERSION = "1.3"
+CURRENT_VERSION = "1.31"
 UPDATE_DATE = "2025-05-21"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
 REPO_NAME = 'come6433/q8r2x7v1p0'
@@ -68,6 +68,8 @@ def print_intro():
     print("- 검색 기능 보완")
     print("- 특이사항 마커 추가")
     print("- 팝업내용 서식 수정")
+    print("- 최신화 일자 추가")
+    print("- 거리, 면적측정도구 추가")
     print("=" * 40)
 
 def read_excel(filename):
@@ -187,12 +189,35 @@ def add_markers_to_map(m, df):
             fg2.add_child(marker)
     return fg1, fg2, fg_special
 
+def add_generated_time(m):
+    now = datetime.datetime.now()
+    time_str = f"작성시점 : {now.year}년 {now.month:02d}월 {now.day:02d}일 {now.hour:02d}시 {now.minute:02d}분"
+    html = f"""
+    <div style="
+        position: fixed;
+        right: 30px;
+        bottom: 18px;
+        background: rgba(255,255,255,0.85);
+        color: #222;
+        font-size: 13px;
+        border-radius: 7px;
+        padding: 4px 14px;
+        box-shadow: 1px 2px 8px #bbb;
+        z-index: 9999;
+        pointer-events: none;
+    ">
+        {time_str}
+    </div>
+    """
+    m.get_root().html.add_child(folium.Element(html))
+
 def make_map(df):
     print("지도 작성 중 ...")
     center_lat = df.iloc[0]['위도']
     center_lon = df.iloc[0]['경도']
     m = folium.Map(location=[center_lat, center_lon], zoom_start=13, max_zoom=21, tiles=None)
     LocateControl(auto_start=False, flyTo=True, keepCurrentZoomLevel=True).add_to(m)
+    MeasureControl(primary_length_unit='meters', primary_area_unit='sqmeters').add_to(m)  # ← 이 줄 추가
     vworld_base = "https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png"
     folium.TileLayer(
         tiles=vworld_base,
@@ -218,6 +243,7 @@ def make_map(df):
         control=True
     ).add_to(m)
     fg1, fg2, fg_special = add_markers_to_map(m, df)
+    add_generated_time(m)
     return m
 
 def add_legend_and_controls(m, df):
@@ -478,6 +504,7 @@ def github_upload(filename):
         upload_or_update(repo, filename, filename)
         print("\n서버 업로드 완료!")
         print(f"공유주소: {SHARE_URL}")
+        print(f"※※※ 페이지가 정상적으로 표시되려면 1~2분 정도 기다려야 합니다. ※※※")
     else:
         print("\n업로드를 취소했습니다.")
 
