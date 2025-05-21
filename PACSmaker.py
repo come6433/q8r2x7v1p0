@@ -9,7 +9,7 @@ import requests
 import sys
 import re
 
-CURRENT_VERSION = "1.4"
+CURRENT_VERSION = "1.2"
 UPDATE_DATE = "2025-05-21"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
 
@@ -92,7 +92,7 @@ def image_to_base64(path):
         data = f.read()
     return base64.b64encode(data).decode()
 
-m = folium.Map(location=[center_lat, center_lon], zoom_start=13, tiles=None)
+m = folium.Map(location=[center_lat, center_lon], zoom_start=13, max_zoom=21, tiles=None)
 LocateControl(auto_start=False, flyTo=True, keepCurrentZoomLevel=True).add_to(m)
 
 vworld_base = "https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png"
@@ -435,8 +435,9 @@ print("\nHTML 파일 저장 완료:", filename)
 # --- GitHub 업로드 자동화 ---
 from github import Github
 import os
+from dotenv import load_dotenv
 
-GITHUB_TOKEN = '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'
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 REPO_NAME = 'come6433/q8r2x7v1p0'
 SHARE_URL = f'come6433.github.io/q8r2x7v1p0/{filename}'
 LOCAL_HTML = filename
@@ -459,9 +460,15 @@ def upload_or_update(path_local, path_remote):
         repo.create_file(path_remote, "자동 업로드", content)
         print(f"생성: {path_remote}")
 
-print("\nHTML 파일 업로드 시작")
-upload_or_update(LOCAL_HTML, REMOTE_HTML)
-print("\n서버 업로드 완료!")
-print(f"공유주소: {SHARE_URL}")
+# 업로드 여부 확인
+answer = input("\n업로드 하시겠습니까? (y/n): ").strip().lower()
+if answer == "y":
+    print("\nHTML 파일 업로드 시작")
+    upload_or_update(LOCAL_HTML, REMOTE_HTML)
+    print("\n서버 업로드 완료!")
+    print(f"공유주소: {SHARE_URL}")
+else:
+    print("\n업로드를 취소했습니다.")
+
 print("=" * 40)
 input("아무 키나 누르면 종료합니다.")
