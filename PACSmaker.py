@@ -40,13 +40,9 @@ import re
 
 
 
-CURRENT_VERSION = "1.23"
+CURRENT_VERSION = "1.4"
 
 UPDATE_DATE = "2025-05-20"
-
-
-
-
 
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
 
@@ -97,7 +93,7 @@ def version_compare(a, b):
 def check_and_update():
 
     try:
-
+        print("업데이트 확인 중 ...")
         r = requests.get(GITHUB_RAW_URL, timeout=5)
 
         if r.status_code == 200:
@@ -1132,3 +1128,47 @@ m.save(filename)
 
 print("\nHTML 파일 저장 완료:", filename)
 
+# --- GitHub 업로드 자동화 ---
+from github import Github
+import os
+
+
+# 1. 설정값 입력
+GITHUB_TOKEN = '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'  # 반드시 본인 토큰으로 교체
+REPO_NAME = 'come6433/q8r2x7v1p0'      # 본인 저장소명으로 교체
+LOCAL_HTML = filename
+REMOTE_HTML = filename
+IMAGES_DIR = 'images'
+
+g = Github(GITHUB_TOKEN)
+repo = g.get_repo(REPO_NAME)
+
+def upload_or_update(path_local, path_remote):
+    print(f"업로드 시도: {path_local} -> {path_remote}")
+    with open(path_local, "rb") as f:
+        content = f.read()
+    try:
+        contents = repo.get_contents(path_remote)
+        repo.update_file(path_remote, "자동 업로드", content, contents.sha)
+        print(f"업데이트: {path_remote}")
+    except Exception as e:
+        print(f"신규 생성 시도: {path_remote} (사유: {e})")
+        repo.create_file(path_remote, "자동 업로드", content)
+        print(f"생성: {path_remote}")
+
+# 2. HTML 파일 업로드
+print("\nHTML 파일 업로드 시작")
+upload_or_update(LOCAL_HTML, REMOTE_HTML)
+
+print("\n서버 업로드 완료!")
+print(f"공유주소: {repo.html_url}/{REMOTE_HTML}")
+print("=" * 40)
+# 종료 대기 (콘솔창이 바로 닫히지 않도록)
+while True:
+    answer = input("종료하시겠습니까? (y/n): ").strip().lower()
+    if answer == "y":
+        break
+    elif answer == "n":
+        print("계속 실행합니다.")
+    else:
+        print("y 또는 n을 입력하세요.")
