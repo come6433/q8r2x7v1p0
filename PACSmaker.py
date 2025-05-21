@@ -242,6 +242,21 @@ def make_map(df):
         overlay=False,
         control=True
     ).add_to(m)
+
+    # 교통정보 레이어 추가 (국가교통정보센터)
+    traffic_tile = "https://its.go.kr:9443/geoserver/gwc/service/wmts/rest/ntic:N_LEVEL_{z}/ntic:REALTIME/EPSG:3857/EPSG:3857:{z}/{y}/{x}?format=image/png8"
+    folium.TileLayer(
+        tiles=traffic_tile,
+        attr="국가교통정보센터",
+        name="실시간 교통정보",
+        overlay=True,
+        control=True,
+        max_zoom=15,
+        min_zoom=7,
+        fmt="image/png",
+        show=False
+    ).add_to(m)
+
     fg1, fg2, fg_special = add_markers_to_map(m, df)
     add_generated_time(m)
     return m
