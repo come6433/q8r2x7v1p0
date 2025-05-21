@@ -308,54 +308,6 @@ def add_custom_js_css(m):
 #imgOverlayClose {
     position: absolute; top: 30px; right: 40px; color: #fff; font-size: 2em; cursor: pointer;
 }
-
-@media (max-width: 600px) {
-    .popup-title {
-        font-size: 1.1em !important;
-    }
-    .popup-img {
-        width: 80px !important;
-        max-width: 80vw !important;
-    }
-    #searchBox {
-        width: 90vw !important;
-        left: 5vw !important;
-        min-width: 0 !important;
-    }
-    #showLatLngBtn, #hideAllBtn, #showAllBtn {
-        left: 5vw !important;
-        width: 90vw !important;
-        min-width: 0 !important;
-        font-size: 1em !important;
-        padding: 8px 0 !important;
-    }
-    #toggleBtns {
-        left: 5vw !important;
-        width: 90vw !important;
-        flex-direction: column;
-        gap: 4px;
-    }
-    #legend {
-        left: 5vw !important;
-        width: 90vw !important;
-        min-width: 0 !important;
-        font-size: 13px !important;
-    }
-    .leaflet-popup-content {
-        width: 90vw !important;
-        min-width: 0 !important;
-        max-width: 95vw !important;
-        padding: 2px !important;
-    }
-    table, .leaflet-popup-content table {
-        width: 100% !important;
-        min-width: 0 !important;
-        font-size: 12px !important;
-    }
-    td, th {
-        padding: 2px 4px !important;
-    }
-}
 </style>
 <button id="showLatLngBtn" class="search-btn">위/경도 표시</button>
 <span id="toggleBtns">
