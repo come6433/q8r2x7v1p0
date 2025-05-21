@@ -237,7 +237,7 @@ def add_legend_and_controls(m, df):
         <b>범례</b><br>
         <i style="background:blue; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 1단 - {count_1}개<br>
         <i style="background:red; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 2단 - {count_2}개<br>
-        <i style="background:pink; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 특이(핑크) - {count_special}개<br>
+        <i style="background:pink; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 특이 - {count_special}개<br>
     </div>
     """
     m.get_root().html.add_child(folium.Element(legend_html))
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         var allMarkers = [];
         if (window.map) {
-            window.map.eachLayer(function(layer) {n
+            window.map.eachLayer(function(layer) {
                 if (layer instanceof L.Marker && layer._popup) {
                     allMarkers.push(layer);
                 }
