@@ -8,10 +8,14 @@ import datetime
 import requests
 import sys
 import re
+from github import Github
 
-CURRENT_VERSION = "1.2"
+CURRENT_VERSION = "1.3"
 UPDATE_DATE = "2025-05-21"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
+REPO_NAME = 'come6433/q8r2x7v1p0'
+FILENAME = "PACS.html"
+IMAGES_DIR = 'images'
 
 def get_version_from_text(text):
     m = re.search(r'CURRENT_VERSION\s*=\s*["\']([\d\.]+)["\']', text)
@@ -28,7 +32,7 @@ def normalize_version(v):
 def version_compare(a, b):
     na = normalize_version(a)
     nb = normalize_version(b)
-    return (na > nb) - (na < nb)  # 1: a>b, -1: a<b, 0: a==b
+    return (na > nb) - (na < nb)
 
 def check_and_update():
     try:
@@ -54,74 +58,33 @@ def check_and_update():
     except Exception as e:
         print("업데이트 확인 중 오류:", e)
 
-check_and_update()
+def print_intro():
+    print("=" * 40)
+    print("      PACS 저상게시대 지도 생성기")
+    print("=" * 40)
+    print("버전:        ", CURRENT_VERSION)
+    print("업데이트:    ", UPDATE_DATE)
+    print("- 관리번호 세분화")
+    print("- 검색 기능 보완")
+    print("- 특이사항 마커 추가")
+    print("- 팝업내용 서식 수정")
+    print("=" * 40)
 
-print("=" * 40)
-print("      PACS 저상게시대 지도 생성기")
-print("=" * 40)
-print("버전:        ", CURRENT_VERSION)
-print("업데이트:    ", UPDATE_DATE)
-print("- 관리번호 세분화")
-print("- 검색 기능 보완")
-print("- 특이사항 항목 추가")
-print("=" * 40)
-print("관리목록.xlsx 파일을 읽는 중...\n")
-
-# --- 병합 셀 포함된 Excel 파일 읽기 ---
-wb = openpyxl.load_workbook('관리목록.xlsx', data_only=True)
-ws = wb.active
-data = []
-for row in ws.iter_rows(min_row=3, values_only=True):
-    data.append(row)
-df = pd.DataFrame(data)
-col_names = []
-for cell in ws[2]:
-    col_names.append(cell.value)
-df.columns = col_names
-
-base_cols = ['설치장소', '단수', '관리번호', '위도', '경도']
-extra_cols = [c for c in df.columns if c not in ['설치장소', '단수', '위도', '경도', '순번'] and c is not None]
-df = df.dropna(subset=['설치장소', '관리번호', '위도', '경도'])
-print("지도 작성 중 ...")
-
-center_lat = df.iloc[0]['위도']
-center_lon = df.iloc[0]['경도']
+def read_excel(filename):
+    print("관리목록.xlsx 파일을 읽는 중...\n")
+    wb = openpyxl.load_workbook(filename, data_only=True)
+    ws = wb.active
+    data = [row for row in ws.iter_rows(min_row=3, values_only=True)]
+    df = pd.DataFrame(data)
+    col_names = [cell.value for cell in ws[2]]
+    df.columns = col_names
+    df = df.dropna(subset=['설치장소', '관리번호', '위도', '경도'])
+    return df
 
 def image_to_base64(path):
     with open(path, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
-
-m = folium.Map(location=[center_lat, center_lon], zoom_start=13, max_zoom=21, tiles=None)
-LocateControl(auto_start=False, flyTo=True, keepCurrentZoomLevel=True).add_to(m)
-
-vworld_base = "https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png"
-folium.TileLayer(
-    tiles=vworld_base,
-    attr="VWorld Base",
-    name="VWorld 일반지도",
-    overlay=False,
-    control=True
-).add_to(m)
-
-vworld_sat = "https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{y}.jpeg"
-folium.TileLayer(
-    tiles=vworld_sat,
-    attr="VWorld Satellite",
-    name="VWorld 위성지도",
-    overlay=False,
-    control=True
-).add_to(m)
-
-naver_tile = "https://map.pstatic.net/nrs/api/v1/raster/satellite/{z}/{x}/{y}.jpg?version=6.03"
-naver_layer = folium.TileLayer(
-    tiles=naver_tile,
-    attr="Naver Satellite",
-    name="네이버 위성지도",
-    overlay=False,
-    control=True
-)
-naver_layer.add_to(m)
 
 def get_color(단수, marker_no):
     if str(marker_no).startswith('특'):
@@ -134,97 +97,154 @@ def get_color(단수, marker_no):
     except Exception:
         return 'blue'
 
-fg1 = folium.FeatureGroup(name='1단 (파랑)').add_to(m)
-fg2 = folium.FeatureGroup(name='2단 (빨강)').add_to(m)
-fg_special = folium.FeatureGroup(name='특이(핑크)').add_to(m)
-
-grouped = df.groupby('마커번호')
-for marker_no, group in grouped:
+def make_popup_html(group, df):
     first = group.iloc[0]
-    lat, lon = first['위도'], first['경도']
-    단수 = first['단수'] if (pd.notnull(first['단수']) and not str(marker_no).startswith('특')) else 1
     설치장소 = first['설치장소'] if '설치장소' in group.columns else ""
     popup_html = f"<div style='text-align:center;'><b class='popup-title'>{설치장소}</b><br>"
+
+    # --- 이미지 행 추가 (여러 관리번호의 이미지를 가로로 표시) ---
+    popup_html += "<table style='border-collapse:collapse; width:auto; margin:8px auto 0 auto;'>"
+    popup_html += "<tr>"
     for _, row in group.iterrows():
         관리번호 = str(row['관리번호'])
-        image_path = f"images/{관리번호}.jpg"
+        image_path = f"{IMAGES_DIR}/{관리번호}.jpg"
         if os.path.exists(image_path):
             img_base64 = image_to_base64(image_path)
             popup_html += (
-                f"<img src='data:image/jpeg;base64,{img_base64}' width='200' class='popup-img' "
+                f"<td style='padding:4px 8px; text-align:center;'>"
+                f"<img src='data:image/jpeg;base64,{img_base64}' width='120' class='popup-img' "
                 "style='cursor:zoom-in;display:block;margin:0 auto;'><br>"
+                f"<span style='font-weight:bold'>{관리번호}</span></td>"
             )
-            table_width = "200px"
         else:
-            table_width = "180px"
-        popup_html += f"<table style='border-collapse:collapse; width:{table_width}; margin:8px auto 0 auto;'>"
-        popup_html += (
-            "<tr>"
-            "<td style='border:1px solid #000; padding:4px 8px; background:#f0f0f0; font-weight:bold; width:70px;'>관리번호</td>"
-            f"<td style='border:1px solid #000; padding:4px 8px;'>{관리번호}</td>"
-            "</tr>"
-        )
-        for col in df.columns:
-            if col in ['마커번호', '관리번호', '위도', '경도', '설치장소', '단수', '순번']:
-                continue
-            val = row[col] if pd.notnull(row[col]) else ""
             popup_html += (
-                "<tr>"
-                f"<td style='border:1px solid #000; padding:4px 8px; background:#f0f0f0; font-weight:bold; width:70px;'>{col}</td>"
-                f"<td style='border:1px solid #000; padding:4px 8px;'>{val}</td>"
-                "</tr>"
+                f"<td style='padding:4px 8px; text-align:center;'>"
+                f"<div style='width:120px;height:90px;background:#eee;display:flex;align-items:center;justify-content:center;'>이미지 없음</div>"
+                f"<br><span style='font-weight:bold'>{관리번호}</span></td>"
             )
-        popup_html += "</table><br>"
-    popup_html += "</div>"
-    icon_html = f"""
-        <div style="
-            background-color:{get_color(단수, marker_no)};
-            color:white;
-            border-radius:50%;
-            text-align:center;
-            width:24px;
-            height:24px;
-            line-height:24px;
-            font-size:12px;">
-            {marker_no}
-        </div>
+    popup_html += "</tr></table>"
+
+    # --- 정보 테이블 (가로로 관리번호별 정보) ---
+    col_count = group.shape[0]
+    min_width = 120 * col_count  # 관리번호(사진) 개수만큼 최소 너비
+    popup_html += f"<table style='border-collapse:collapse; width:auto; min-width:{min_width}px; margin:8px auto 0 auto;'>"
+    # 헤더 행: 항목명 + 관리번호별
+    popup_html += "<tr><td style='border:1px solid #000; padding:4px 8px; background:#f0f0f0; font-weight:bold;'>관리번호</td>"
+    for _, row in group.iterrows():
+        popup_html += f"<td style='border:1px solid #000; padding:4px 8px; background:#e3f2fd; font-weight:bold;'>{row['관리번호']}</td>"
+    popup_html += "</tr>"
+
+    # 각 항목별로 행 생성 (기본 컬럼만 제외하고 나머지는 모두 표시)
+    exclude_cols = ['마커번호', '관리번호', '위도', '경도', '설치장소', '단수', '순번']
+    for col in df.columns:
+        if col in exclude_cols:
+            continue
+        popup_html += f"<tr><td style='border:1px solid #000; padding:4px 8px; background:#f0f0f0; font-weight:bold;'>{col}</td>"
+        for _, row in group.iterrows():
+            val = row[col] if pd.notnull(row[col]) else ""
+            # 줄바꿈(\n, \r\n)을 <br>로 변환
+            if isinstance(val, str):
+                val = val.replace('\r\n', '<br>').replace('\n', '<br>')
+            popup_html += f"<td style='border:1px solid #000; padding:4px 8px;'>{val}</td>"
+        popup_html += "</tr>"
+
+    popup_html += "</table><br></div>"
+    return popup_html
+
+def add_markers_to_map(m, df):
+    fg1 = folium.FeatureGroup(name='1단 (파랑)').add_to(m)
+    fg2 = folium.FeatureGroup(name='2단 (빨강)').add_to(m)
+    fg_special = folium.FeatureGroup(name='특이(핑크)').add_to(m)
+    grouped = df.groupby('마커번호')
+    for marker_no, group in grouped:
+        first = group.iloc[0]
+        lat, lon = first['위도'], first['경도']
+        단수 = first['단수'] if (pd.notnull(first['단수']) and not str(marker_no).startswith('특')) else 1
+        popup_html = make_popup_html(group, df)
+        icon_html = f"""
+            <div style="
+                background-color:{get_color(단수, marker_no)};
+                color:white;
+                border-radius:50%;
+                text-align:center;
+                width:24px;
+                height:24px;
+                line-height:24px;
+                font-size:12px;">
+                {marker_no}
+            </div>
+        """
+        marker = folium.Marker(
+            location=[lat, lon],
+            icon=folium.DivIcon(html=icon_html),
+            popup=folium.Popup(popup_html, max_width=250)
+        )
+        if str(marker_no).startswith('특'):
+            fg_special.add_child(marker)
+        elif 단수 == 1:
+            fg1.add_child(marker)
+        else:
+            fg2.add_child(marker)
+    return fg1, fg2, fg_special
+
+def make_map(df):
+    print("지도 작성 중 ...")
+    center_lat = df.iloc[0]['위도']
+    center_lon = df.iloc[0]['경도']
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=13, max_zoom=21, tiles=None)
+    LocateControl(auto_start=False, flyTo=True, keepCurrentZoomLevel=True).add_to(m)
+    vworld_base = "https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png"
+    folium.TileLayer(
+        tiles=vworld_base,
+        attr="VWorld Base",
+        name="VWorld 일반지도",
+        overlay=False,
+        control=True
+    ).add_to(m)
+    vworld_sat = "https://xdworld.vworld.kr/2d/Satellite/service/{z}/{x}/{y}.jpeg"
+    folium.TileLayer(
+        tiles=vworld_sat,
+        attr="VWorld Satellite",
+        name="VWorld 위성지도",
+        overlay=False,
+        control=True
+    ).add_to(m)
+    naver_tile = "https://map.pstatic.net/nrs/api/v1/raster/satellite/{z}/{x}/{y}.jpg?version=6.03"
+    folium.TileLayer(
+        tiles=naver_tile,
+        attr="Naver Satellite",
+        name="네이버 위성지도",
+        overlay=False,
+        control=True
+    ).add_to(m)
+    fg1, fg2, fg_special = add_markers_to_map(m, df)
+    return m
+
+def add_legend_and_controls(m, df):
+    count_1 = (df['단수'] == 1).sum()
+    count_2 = (df['단수'] == 2).sum()
+    count_special = df['마커번호'].apply(lambda x: str(x).startswith('특')).sum()
+    legend_html = f"""
+    <div id="legend" style="
+        position: fixed; 
+        bottom: 50px; left: 50px; width: 200px; height: 100px; 
+        background-color: white; 
+        border:2px solid grey; 
+        z-index:9999; 
+        font-size:14px;
+        padding: 10px;
+        ">
+        <b>범례</b><br>
+        <i style="background:blue; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 1단 - {count_1}개<br>
+        <i style="background:red; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 2단 - {count_2}개<br>
+        <i style="background:pink; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 특이(핑크) - {count_special}개<br>
+    </div>
     """
-    marker = folium.Marker(
-        location=[lat, lon],
-        icon=folium.DivIcon(html=icon_html),
-        popup=folium.Popup(popup_html, max_width=250)
-    )
-    if str(marker_no).startswith('특'):
-        fg_special.add_child(marker)
-    elif 단수 == 1:
-        fg1.add_child(marker)
-    else:
-        fg2.add_child(marker)
+    m.get_root().html.add_child(folium.Element(legend_html))
+    folium.LayerControl(collapsed=False).add_to(m)
 
-count_1 = (df['단수'] == 1).sum()
-count_2 = (df['단수'] == 2).sum()
-count_special = df['마커번호'].apply(lambda x: str(x).startswith('특')).sum()
-legend_html = f"""
-<div id="legend" style="
-    position: fixed; 
-    bottom: 50px; left: 50px; width: 200px; height: 100px; 
-    background-color: white; 
-    border:2px solid grey; 
-    z-index:9999; 
-    font-size:14px;
-    padding: 10px;
-    ">
-    <b>범례</b><br>
-    <i style="background:blue; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 1단 - {count_1}개<br>
-    <i style="background:red; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 2단 - {count_2}개<br>
-    <i style="background:pink; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 특이(핑크) - {count_special}개<br>
-</div>
-"""
-m.get_root().html.add_child(folium.Element(legend_html))
-folium.LayerControl(collapsed=False).add_to(m)
-filename = "PACS.html"
-
-custom_js_css = r"""
+def add_custom_js_css(m):
+    custom_js_css = r"""
 <style>
 #showLatLngBtn {
     position: fixed;
@@ -288,6 +308,54 @@ custom_js_css = r"""
 #imgOverlayClose {
     position: absolute; top: 30px; right: 40px; color: #fff; font-size: 2em; cursor: pointer;
 }
+
+@media (max-width: 600px) {
+    .popup-title {
+        font-size: 1.1em !important;
+    }
+    .popup-img {
+        width: 80px !important;
+        max-width: 80vw !important;
+    }
+    #searchBox {
+        width: 90vw !important;
+        left: 5vw !important;
+        min-width: 0 !important;
+    }
+    #showLatLngBtn, #hideAllBtn, #showAllBtn {
+        left: 5vw !important;
+        width: 90vw !important;
+        min-width: 0 !important;
+        font-size: 1em !important;
+        padding: 8px 0 !important;
+    }
+    #toggleBtns {
+        left: 5vw !important;
+        width: 90vw !important;
+        flex-direction: column;
+        gap: 4px;
+    }
+    #legend {
+        left: 5vw !important;
+        width: 90vw !important;
+        min-width: 0 !important;
+        font-size: 13px !important;
+    }
+    .leaflet-popup-content {
+        width: 90vw !important;
+        min-width: 0 !important;
+        max-width: 95vw !important;
+        padding: 2px !important;
+    }
+    table, .leaflet-popup-content table {
+        width: 100% !important;
+        min-width: 0 !important;
+        font-size: 12px !important;
+    }
+    td, th {
+        padding: 2px 4px !important;
+    }
+}
 </style>
 <button id="showLatLngBtn" class="search-btn">위/경도 표시</button>
 <span id="toggleBtns">
@@ -335,7 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         var allMarkers = [];
         if (window.map) {
-            window.map.eachLayer(function(layer) {
+            window.map.eachLayer(function(layer) {n
                 if (layer instanceof L.Marker && layer._popup) {
                     allMarkers.push(layer);
                 }
@@ -426,28 +494,13 @@ document.addEventListener('click', function(e) {
 });
 </script>
 """
+    m.get_root().html.add_child(folium.Element(custom_js_css))
 
-m.get_root().html.add_child(folium.Element(custom_js_css))
-m.save(filename)
+def save_map(m, filename):
+    m.save(filename)
+    print("\nHTML 파일 저장 완료:", filename)
 
-print("\nHTML 파일 저장 완료:", filename)
-
-# --- GitHub 업로드 자동화 ---
-from github import Github
-import os
-from dotenv import load_dotenv
-
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-REPO_NAME = 'come6433/q8r2x7v1p0'
-SHARE_URL = f'come6433.github.io/q8r2x7v1p0/{filename}'
-LOCAL_HTML = filename
-REMOTE_HTML = filename
-IMAGES_DIR = 'images'
-
-g = Github(GITHUB_TOKEN)
-repo = g.get_repo(REPO_NAME)
-
-def upload_or_update(path_local, path_remote):
+def upload_or_update(repo, path_local, path_remote):
     print(f"업로드 시도: {path_local} -> {path_remote}")
     with open(path_local, "rb") as f:
         content = f.read()
@@ -460,15 +513,33 @@ def upload_or_update(path_local, path_remote):
         repo.create_file(path_remote, "자동 업로드", content)
         print(f"생성: {path_remote}")
 
-# 업로드 여부 확인
-answer = input("\n업로드 하시겠습니까? (y/n): ").strip().lower()
-if answer == "y":
-    print("\nHTML 파일 업로드 시작")
-    upload_or_update(LOCAL_HTML, REMOTE_HTML)
-    print("\n서버 업로드 완료!")
-    print(f"공유주소: {SHARE_URL}")
-else:
-    print("\n업로드를 취소했습니다.")
+def github_upload(filename):
+    from dotenv import load_dotenv
+    load_dotenv()
+    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+    SHARE_URL = f'come6433.github.io/q8r2x7v1p0/{filename}'
+    g = Github(GITHUB_TOKEN)
+    repo = g.get_repo(REPO_NAME)
+    answer = input("\n업로드 하시겠습니까? (y/n): ").strip().lower()
+    if answer == "y":
+        print("\nHTML 파일 업로드 시작")
+        upload_or_update(repo, filename, filename)
+        print("\n서버 업로드 완료!")
+        print(f"공유주소: {SHARE_URL}")
+    else:
+        print("\n업로드를 취소했습니다.")
 
-print("=" * 40)
-input("아무 키나 누르면 종료합니다.")
+def main():
+    check_and_update()
+    print_intro()
+    df = read_excel('관리목록.xlsx')
+    m = make_map(df)
+    add_legend_and_controls(m, df)
+    add_custom_js_css(m)
+    save_map(m, FILENAME)
+    github_upload(FILENAME)
+    print("=" * 40)
+    input("아무 키나 누르면 종료합니다.")
+
+if __name__ == "__main__":
+    main()
