@@ -10,7 +10,7 @@ import sys
 import re
 from github import Github
 
-CURRENT_VERSION = "1.31"
+CURRENT_VERSION = "1.4"
 UPDATE_DATE = "2025-05-21"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
 REPO_NAME = 'come6433/q8r2x7v1p0'
@@ -89,8 +89,12 @@ def image_to_base64(path):
     return base64.b64encode(data).decode()
 
 def get_color(단수, marker_no):
-    if str(marker_no).startswith('특'):
+    # '민원', '예정' 처리
+    marker_no_str = str(marker_no)
+    if marker_no_str.startswith('민원'):
         return 'pink'
+    if marker_no_str.startswith('예정'):
+        return 'yellow'
     try:
         if int(단수) == 1:
             return 'blue'
@@ -156,24 +160,34 @@ def make_popup_html(group, df):
 def add_markers_to_map(m, df):
     fg1 = folium.FeatureGroup(name='1단 (파랑)').add_to(m)
     fg2 = folium.FeatureGroup(name='2단 (빨강)').add_to(m)
-    fg_special = folium.FeatureGroup(name='특이(핑크)').add_to(m)
+    fg_special = folium.FeatureGroup(name='민원(핑크)').add_to(m)
+    fg_plan = folium.FeatureGroup(name='예정(노랑)').add_to(m)
     grouped = df.groupby('마커번호')
     for marker_no, group in grouped:
         first = group.iloc[0]
         lat, lon = first['위도'], first['경도']
-        단수 = first['단수'] if (pd.notnull(first['단수']) and not str(marker_no).startswith('특')) else 1
+        marker_no_str = str(marker_no)
+        # 마커에 표시될 이름 가공
+        if marker_no_str.startswith('민원'):
+            marker_label = marker_no_str.replace('민원', '민', 1)
+        elif marker_no_str.startswith('예정'):
+            marker_label = marker_no_str.replace('예정', '예', 1)
+        else:
+            marker_label = marker_no_str
+        단수 = first['단수'] if (pd.notnull(first['단수']) and not marker_no_str.startswith(('민원', '예정'))) else 1
         popup_html = make_popup_html(group, df)
         icon_html = f"""
             <div style="
                 background-color:{get_color(단수, marker_no)};
-                color:white;
+                color:black;
                 border-radius:50%;
                 text-align:center;
                 width:24px;
                 height:24px;
                 line-height:24px;
-                font-size:12px;">
-                {marker_no}
+                font-size:12px;
+                border:1.5px solid #888;">
+                {marker_label}
             </div>
         """
         marker = folium.Marker(
@@ -181,13 +195,15 @@ def add_markers_to_map(m, df):
             icon=folium.DivIcon(html=icon_html),
             popup=folium.Popup(popup_html, max_width=250)
         )
-        if str(marker_no).startswith('특'):
+        if marker_no_str.startswith('민원'):
             fg_special.add_child(marker)
+        elif marker_no_str.startswith('예정'):
+            fg_plan.add_child(marker)
         elif 단수 == 1:
             fg1.add_child(marker)
         else:
             fg2.add_child(marker)
-    return fg1, fg2, fg_special
+    return fg1, fg2, fg_special, fg_plan
 
 def add_generated_time(m):
     now = datetime.datetime.now()
@@ -257,18 +273,19 @@ def make_map(df):
         show=False
     ).add_to(m)
 
-    fg1, fg2, fg_special = add_markers_to_map(m, df)
+    fg1, fg2, fg_special, fg_plan = add_markers_to_map(m, df)
     add_generated_time(m)
     return m
 
 def add_legend_and_controls(m, df):
     count_1 = (df['단수'] == 1).sum()
     count_2 = (df['단수'] == 2).sum()
-    count_special = df['마커번호'].apply(lambda x: str(x).startswith('특')).sum()
+    count_special = df['마커번호'].apply(lambda x: str(x).startswith('민원')).sum()
+    count_plan = df['마커번호'].apply(lambda x: str(x).startswith('예정')).sum()
     legend_html = f"""
     <div id="legend" style="
         position: fixed; 
-        bottom: 50px; left: 50px; width: 200px; height: 100px; 
+        bottom: 50px; left: 50px; width: 220px; height: 120px; 
         background-color: white; 
         border:2px solid grey; 
         z-index:9999; 
@@ -278,7 +295,8 @@ def add_legend_and_controls(m, df):
         <b>범례</b><br>
         <i style="background:blue; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 1단 - {count_1}개<br>
         <i style="background:red; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 2단 - {count_2}개<br>
-        <i style="background:pink; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 특이 - {count_special}개<br>
+        <i style="background:pink; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 민원 - {count_special}개<br>
+        <i style="background:yellow; width:15px; height:15px; display:inline-block; border-radius:50%; border:1px solid #888;"></i> 예정 - {count_plan}개<br>
     </div>
     """
     m.get_root().html.add_child(folium.Element(legend_html))
