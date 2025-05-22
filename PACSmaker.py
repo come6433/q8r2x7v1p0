@@ -10,7 +10,7 @@ import sys
 import re
 from github import Github
 
-CURRENT_VERSION = "2.0.0"
+CURRENT_VERSION = "2.0.1"
 UPDATE_DATE = "2025-05-22"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
 REPO_NAME = 'come6433/q8r2x7v1p0'
@@ -65,11 +65,10 @@ def print_intro():
     print("버전:        ", CURRENT_VERSION)
     print("업데이트:    ", UPDATE_DATE)
     print("- 관리번호 세분화")
-    print("- 검색 기능 보완")
-    print("- 특이사항 마커 추가")
-    print("- 팝업내용 서식 수정")
-    print("- 최신화 일자 추가")
     print("- 거리, 면적측정도구 추가")
+    print("- 실시간 교통정보 추가")
+    print("- 민원 마커 추가")
+    print("- 설치예정 마커 추가")
     print("=" * 40)
 
 def read_excel(filename):
