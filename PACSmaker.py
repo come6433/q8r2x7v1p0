@@ -535,6 +535,13 @@ def github_upload(filename):
     if answer == "y":
         print("\nHTML 파일 업로드 시작")
         upload_or_update(repo, filename, filename)
+        # 관리목록.xlsx도 함께 업로드
+        excel_name = '관리목록.xlsx'
+        if os.path.exists(excel_name):
+            upload_or_update(repo, excel_name, excel_name)
+            print(f"{excel_name} 파일도 업로드 완료!")
+        else:
+            print(f"{excel_name} 파일이 존재하지 않아 업로드하지 않았습니다.")
         print("\n서버 업로드 완료!")
         print(f"공유주소: {SHARE_URL}")
         print(f"※※※ 페이지가 정상적으로 표시되려면 1~2분 정도 기다려야 합니다. ※※※")
