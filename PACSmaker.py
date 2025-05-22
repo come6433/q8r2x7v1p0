@@ -10,7 +10,7 @@ import sys
 import re
 from github import Github
 
-CURRENT_VERSION = "2.0.3"
+CURRENT_VERSION = "2.0.4"
 UPDATE_DATE = "2025-05-22"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
 REPO_NAME = 'come6433/q8r2x7v1p0'
