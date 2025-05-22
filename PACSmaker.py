@@ -130,15 +130,7 @@ def print_intro():
 
     print("업데이트:    ", UPDATE_DATE)
 
-    print("- 관리번호 세분화")
-
-    print("- 거리, 면적측정도구 추가")
-
-    print("- 실시간 교통정보 추가")
-
-    print("- 민원 마커 추가")
-
-    print("- 설치예정 마커 추가")
+    print("- 마커 색깔에 따른 색상변경")
 
     print("=" * 40)
 
