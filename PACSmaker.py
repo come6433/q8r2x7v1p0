@@ -248,7 +248,7 @@ def add_legend_and_controls(m, df):
     <div id="legend" style="position: fixed; bottom: 50px; left: 50px; width: 220px; height: 120px; background-color: white; border:2px solid grey; z-index:9999; font-size:14px; padding: 10px;">
         <b>범례</b><br>
         <i style="background:blue; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 1단 - {count_1}개<br>
-        <i style="background:red; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 2단 - {count_2}면<br>
+        <i style="background:red; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 2단 - {count_2}개<br>
         <i style="background:pink; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 민원 - {count_special}개<br>
         <i style="background:yellow; width:15px; height:15px; display:inline-block; border-radius:50%; border:1px solid #888;"></i> 예정 - {count_plan}개<br>
     </div>
