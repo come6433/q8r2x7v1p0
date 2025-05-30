@@ -10,7 +10,7 @@ import sys
 import re
 from github import Github
 
-CURRENT_VERSION = "2.0.5"
+CURRENT_VERSION = "2.0.6"
 UPDATE_DATE = "2025-05-22"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
 REPO_NAME = 'come6433/q8r2x7v1p0'
@@ -64,10 +64,8 @@ def print_intro():
     print("=" * 40)
     print("버전:        ", CURRENT_VERSION)
     print("업데이트:    ", UPDATE_DATE)
-    print("- 민원, 예정 마커 삭제")
-    print("- 설치예정, 철거예정, 변경예정 마커 추가")
-    print("- 마커 라벨 길이에 따라 원 크기와 폰트 크기 자동 조정")
-    print("- 범례 가운데정렬")
+    print("- 변경예정 마커색깔 변경 : 보라색")
+    print("- 마커번호 불일치 변경")
     print("=" * 40)
 
 def read_excel(filename):
@@ -93,7 +91,7 @@ def get_color(단수, marker_no):
     if marker_no_str.startswith('철거예정'):
         return '#ff9800'  # orange
     if marker_no_str.startswith('변경예정'):
-        return '#8bc34a'  # light green
+        return '#a259e6'  # 보라색 (purple)
     try:
         if int(단수) == 1:
             return 'blue'
@@ -104,7 +102,7 @@ def get_color(단수, marker_no):
 
 def get_marker_text_color(bg_color):
     # 밝은 배경은 검정, 어두운 배경은 흰색
-    if bg_color in ['red', 'blue', '#00bcd4', '#8bc34a', '#ff9800']:
+    if bg_color in ['red', 'blue', '#00bcd4', '#a259e6', '#ff9800']:
         return 'white'
     if bg_color in ['yellow', 'pink']:
         return 'black'
@@ -163,12 +161,7 @@ def add_markers_to_map(m, df):
     fg2 = folium.FeatureGroup(name='2단 (빨강)').add_to(m)
     fg_install = folium.FeatureGroup(name='설치예정(청록)').add_to(m)
     fg_remove = folium.FeatureGroup(name='철거예정(주황)').add_to(m)
-    fg_change = folium.FeatureGroup(name='변경예정(연두)').add_to(m)
-
-    # 카운터
-    install_cnt = 1
-    remove_cnt = 1
-    change_cnt = 1
+    fg_change = folium.FeatureGroup(name='변경예정(보라)').add_to(m)
 
     grouped = df.groupby('마커번호')
     for marker_no, group in grouped:
@@ -176,16 +169,17 @@ def add_markers_to_map(m, df):
         lat, lon = first['위도'], first['경도']
         marker_no_str = str(marker_no)
         if marker_no_str.startswith('설치예정'):
-            marker_label = f"설{install_cnt}"
-            install_cnt += 1
+            # 숫자만 추출
+            num = re.sub(r'\D', '', marker_no_str)
+            marker_label = f"설{num}" if num else "설"
             단수 = 1
         elif marker_no_str.startswith('철거예정'):
-            marker_label = f"철{remove_cnt}"
-            remove_cnt += 1
+            num = re.sub(r'\D', '', marker_no_str)
+            marker_label = f"철{num}" if num else "철"
             단수 = 1
         elif marker_no_str.startswith('변경예정'):
-            marker_label = f"변{change_cnt}"
-            change_cnt += 1
+            num = re.sub(r'\D', '', marker_no_str)
+            marker_label = f"변{num}" if num else "변"
             단수 = 1
         else:
             marker_label = marker_no_str
@@ -300,7 +294,7 @@ def add_legend_and_controls(m, df):
         <i style="background:red; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 2단 - {count_2}개<br>
         <i style="background:yellow; width:15px; height:15px; display:inline-block; border-radius:50%; border:1px solid #888;"></i> 설치예정 - {count_install}개<br>
         <i style="background:#ff9800; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 철거예정 - {count_remove}개<br>
-        <i style="background:#8bc34a; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 변경예정 - {count_change}개<br>
+        <i style="background:#a259e6; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 변경예정 - {count_change}개<br>
     </div>
     """
     m.get_root().html.add_child(folium.Element(legend_html))
