@@ -64,7 +64,10 @@ def print_intro():
     print("=" * 40)
     print("버전:        ", CURRENT_VERSION)
     print("업데이트:    ", UPDATE_DATE)
-    print("- 범례 작성시 '민원, '예정'이 1단에 합산되는 문제 수정")
+    print("- 민원, 예정 마커 삭제")
+    print("- 설치예정, 철거예정, 변경예정 마커 추가")
+    print("- 마커 라벨 길이에 따라 원 크기와 폰트 크기 자동 조정")
+    print("- 범례 가운데정렬")
     print("=" * 40)
 
 def read_excel(filename):
