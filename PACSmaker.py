@@ -10,7 +10,7 @@ import sys
 import re
 from github import Github
 
-CURRENT_VERSION = "2.0.4"
+CURRENT_VERSION = "2.0.5"
 UPDATE_DATE = "2025-05-22"
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/come6433/q8r2x7v1p0/main/PACSmaker.py"
 REPO_NAME = 'come6433/q8r2x7v1p0'
@@ -85,10 +85,12 @@ def image_to_base64(path):
 
 def get_color(단수, marker_no):
     marker_no_str = str(marker_no)
-    if marker_no_str.startswith('민원'):
-        return 'pink'
-    if marker_no_str.startswith('예정'):
-        return 'yellow'
+    if marker_no_str.startswith('설치예정'):
+        return 'yellow'  # 노란색
+    if marker_no_str.startswith('철거예정'):
+        return '#ff9800'  # orange
+    if marker_no_str.startswith('변경예정'):
+        return '#8bc34a'  # light green
     try:
         if int(단수) == 1:
             return 'blue'
@@ -98,7 +100,8 @@ def get_color(단수, marker_no):
         return 'blue'
 
 def get_marker_text_color(bg_color):
-    if bg_color in ['red', 'blue']:
+    # 밝은 배경은 검정, 어두운 배경은 흰색
+    if bg_color in ['red', 'blue', '#00bcd4', '#8bc34a', '#ff9800']:
         return 'white'
     if bg_color in ['yellow', 'pink']:
         return 'black'
@@ -135,9 +138,13 @@ def make_popup_html(group, df):
         popup_html += f"<td style='border:1px solid #000; padding:4px 8px; background:#e3f2fd; font-weight:bold;'>{row['관리번호']}</td>"
     popup_html += "</tr>"
     exclude_cols = ['마커번호', '관리번호', '위도', '경도', '설치장소', '단수', '순번']
-    for col in df.columns:
+    # Z칼럼 이후(AA~)는 무시
+    max_col_index = 25  # 0부터 시작(Z=25)
+    for idx, col in enumerate(df.columns):
         if col in exclude_cols:
             continue
+        if idx > max_col_index:
+            break
         popup_html += f"<tr><td style='border:1px solid #000; padding:4px 8px; background:#f0f0f0; font-weight:bold;'>{col}</td>"
         for _, row in group.iterrows():
             val = row[col] if pd.notnull(row[col]) else ""
@@ -151,38 +158,74 @@ def make_popup_html(group, df):
 def add_markers_to_map(m, df):
     fg1 = folium.FeatureGroup(name='1단 (파랑)').add_to(m)
     fg2 = folium.FeatureGroup(name='2단 (빨강)').add_to(m)
-    fg_special = folium.FeatureGroup(name='민원(핑크)').add_to(m)
-    fg_plan = folium.FeatureGroup(name='예정(노랑)').add_to(m)
+    fg_install = folium.FeatureGroup(name='설치예정(청록)').add_to(m)
+    fg_remove = folium.FeatureGroup(name='철거예정(주황)').add_to(m)
+    fg_change = folium.FeatureGroup(name='변경예정(연두)').add_to(m)
+
+    # 카운터
+    install_cnt = 1
+    remove_cnt = 1
+    change_cnt = 1
+
     grouped = df.groupby('마커번호')
     for marker_no, group in grouped:
         first = group.iloc[0]
         lat, lon = first['위도'], first['경도']
         marker_no_str = str(marker_no)
-        if marker_no_str.startswith('민원'):
-            marker_label = marker_no_str.replace('민원', '민', 1)
-        elif marker_no_str.startswith('예정'):
-            marker_label = marker_no_str.replace('예정', '예', 1)
+        if marker_no_str.startswith('설치예정'):
+            marker_label = f"설{install_cnt}"
+            install_cnt += 1
+            단수 = 1
+        elif marker_no_str.startswith('철거예정'):
+            marker_label = f"철{remove_cnt}"
+            remove_cnt += 1
+            단수 = 1
+        elif marker_no_str.startswith('변경예정'):
+            marker_label = f"변{change_cnt}"
+            change_cnt += 1
+            단수 = 1
         else:
             marker_label = marker_no_str
-        단수 = first['단수'] if (pd.notnull(first['단수']) and not marker_no_str.startswith(('민원', '예정'))) else 1
+            단수 = first['단수'] if pd.notnull(first['단수']) else 1
+
+        # 마커 라벨 길이에 따라 원 크기와 폰트 크기 자동 조정
+        label_len = len(marker_label)
+        if label_len <= 2:
+            size = 24
+            font_size = 12
+        elif label_len == 3:
+            size = 28
+            font_size = 12
+        elif label_len == 4:
+            size = 32
+            font_size = 11
+        else:
+            size = 36
+            font_size = 10
+
         popup_html = make_popup_html(group, df)
         bg_color = get_color(단수, marker_no)
         text_color = get_marker_text_color(bg_color)
-        icon_html = f"""<div style="background-color:{bg_color};color:{text_color};border-radius:50%;text-align:center;width:24px;height:24px;line-height:24px;font-size:12px;border:1.5px solid #888;">{marker_label}</div>"""
+        icon_html = (
+            f"""<div style="background-color:{bg_color};color:{text_color};border-radius:50%;text-align:center;"""
+            f"""width:{size}px;height:{size}px;line-height:{size}px;font-size:{font_size}px;border:1.5px solid #888;overflow:hidden;white-space:nowrap;">{marker_label}</div>"""
+        )
         marker = folium.Marker(
             location=[lat, lon],
             icon=folium.DivIcon(html=icon_html),
             popup=folium.Popup(popup_html, max_width=250)
         )
-        if marker_no_str.startswith('민원'):
-            fg_special.add_child(marker)
-        elif marker_no_str.startswith('예정'):
-            fg_plan.add_child(marker)
-        elif 단수 == 1:
+        if marker_no_str.startswith('설치예정'):
+            fg_install.add_child(marker)
+        elif marker_no_str.startswith('철거예정'):
+            fg_remove.add_child(marker)
+        elif marker_no_str.startswith('변경예정'):
+            fg_change.add_child(marker)
+        elif int(단수) == 1:
             fg1.add_child(marker)
         else:
             fg2.add_child(marker)
-    return fg1, fg2, fg_special, fg_plan
+    return fg1, fg2, fg_install, fg_remove, fg_change
 
 def add_generated_time(m):
     now = datetime.datetime.now()
@@ -233,24 +276,28 @@ def make_map(df):
         fmt="image/png",
         show=False
     ).add_to(m)
-    fg1, fg2, fg_special, fg_plan = add_markers_to_map(m, df)
+    fg1, fg2, fg_install, fg_remove, fg_change = add_markers_to_map(m, df)
     add_generated_time(m)
     return m
 
 def add_legend_and_controls(m, df):
-    is_normal = ~df['마커번호'].astype(str).str.startswith(('민원', '예정'))
-    df_normal = df[is_normal]
+    # 범례에 신규 마커 추가, "범례"만 가운데 정렬
+    df_normal = df[~df['마커번호'].astype(str).str.startswith(('설치예정', '철거예정', '변경예정'))]
     count_1 = ((df_normal['단수'] == 1)).sum()
-    count_2 = ((df_normal['단수'] == 2)).sum() // 2  # 2단은 '면' 단위로 2로 나눔
-    count_special = df['마커번호'].astype(str).str.startswith('민원').sum()
-    count_plan = df['마커번호'].astype(str).str.startswith('예정').sum()
+    count_2 = ((df_normal['단수'] == 2)).sum() // 2
+
+    count_install = df['마커번호'].astype(str).str.startswith('설치예정').sum()
+    count_remove = df['마커번호'].astype(str).str.startswith('철거예정').sum()
+    count_change = df['마커번호'].astype(str).str.startswith('변경예정').sum()
+
     legend_html = f"""
-    <div id="legend" style="position: fixed; bottom: 50px; left: 50px; width: 220px; height: 120px; background-color: white; border:2px solid grey; z-index:9999; font-size:14px; padding: 10px;">
-        <b>범례</b><br>
+    <div id="legend" style="position: fixed; bottom: 50px; left: 50px; width: 160px; height: 140px; background-color: white; border:2px solid grey; z-index:9999; font-size:14px; padding: 10px; text-align:left;">
+        <div style="text-align:center; font-weight:bold;">범례</div>
         <i style="background:blue; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 1단 - {count_1}개<br>
         <i style="background:red; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 2단 - {count_2}개<br>
-        <i style="background:pink; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 민원 - {count_special}개<br>
-        <i style="background:yellow; width:15px; height:15px; display:inline-block; border-radius:50%; border:1px solid #888;"></i> 예정 - {count_plan}개<br>
+        <i style="background:yellow; width:15px; height:15px; display:inline-block; border-radius:50%; border:1px solid #888;"></i> 설치예정 - {count_install}개<br>
+        <i style="background:#ff9800; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 철거예정 - {count_remove}개<br>
+        <i style="background:#8bc34a; width:15px; height:15px; display:inline-block; border-radius:50%;"></i> 변경예정 - {count_change}개<br>
     </div>
     """
     m.get_root().html.add_child(folium.Element(legend_html))
